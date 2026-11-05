@@ -1,32 +1,91 @@
 
 import flet as ft
+
 from datetime import datetime
+from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from app.theme.colors import AppColors as C
-from app.data.comandas import (
-    COMANDAS,
-    calcular_total,
-    formatar_moeda,
+from app.services.comandas_service import (
+    listar_comandas_fechadas_bd,
+    buscar_detalhes_comanda_bd,
 )
 
 
-def comandas_fechadas_screen(page, voltar, abrir_detalhes):
+def formatar_moeda(valor):
+    numero = Decimal(str(valor))
 
+    return (
+        f"R$ {numero:,.2f}"
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
+
+
+def formatar_data(data_iso):
+    if not data_iso:
+        return "Horário não registrado"
+
+    try:
+        data = datetime.fromisoformat(
+            data_iso.replace("Z", "+00:00")
+        )
+
+        data = data.astimezone(
+            ZoneInfo("America/Sao_Paulo")
+        )
+
+        return data.strftime("%d/%m/%Y às %H:%M")
+
+    except (ValueError, TypeError):
+        return "Horário não registrado"
+
+
+def comandas_fechadas_screen(
+    page,
+    voltar,
+    abrir_detalhes,
+    cliente_supabase,
+):
     lista = ft.Column(spacing=12)
+
+    try:
+        registros = listar_comandas_fechadas_bd(
+            cliente_supabase
+        )
+
+        comandas = []
+
+        for registro in registros:
+            detalhes = buscar_detalhes_comanda_bd(
+                cliente_supabase,
+                registro["id"],
+            )
+            comandas.append(detalhes)
+
+    except Exception as erro:
+        print(f"Erro ao carregar comandas fechadas: {erro}")
+
+        comandas = []
+
+        page.show_dialog(
+            ft.SnackBar(
+                content=ft.Text(
+                    "Não foi possível carregar as comandas fechadas."
+                )
+            )
+        )
 
     def criar_card(comanda):
         quantidade = sum(
             item["quantidade"]
-            for item in comanda["produtos"]
+            for item in comanda["itens"]
         )
 
-        fechamento = comanda.get("fechada_em")
-
-        if fechamento:
-            data = datetime.fromisoformat(fechamento)
-            horario = data.strftime("%d/%m/%Y às %H:%M")
-        else:
-            horario = "Horário não registrado"
+        horario = formatar_data(
+            comanda.get("fechada_em")
+        )
 
         return ft.Container(
             bgcolor=C.SURFACE,
@@ -34,9 +93,9 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
             border=ft.Border.all(1, C.BORDER),
             padding=14,
             content=ft.Column(
-                [
+                controls=[
                     ft.Row(
-                        [
+                        controls=[
                             ft.Container(
                                 width=48,
                                 height=48,
@@ -50,7 +109,7 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
                                 ),
                             ),
                             ft.Column(
-                                [
+                                controls=[
                                     ft.Text(
                                         comanda["cliente"],
                                         size=16,
@@ -73,7 +132,7 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
                             ),
                             ft.Text(
                                 formatar_moeda(
-                                    calcular_total(comanda)
+                                    comanda["total"]
                                 ),
                                 color=C.PRIMARY,
                                 weight=ft.FontWeight.BOLD,
@@ -82,7 +141,7 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
                     ),
                     ft.Divider(color=C.BORDER),
                     ft.Row(
-                        [
+                        controls=[
                             ft.Text(
                                 f"{quantidade} itens · Finalizada",
                                 color=C.GREEN,
@@ -90,9 +149,8 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
                             ),
                             ft.TextButton(
                                 content="Ver detalhes",
-                                on_click=lambda e: abrir_detalhes(
-                                    comanda
-                                ),
+                                on_click=lambda e, c=comanda:
+                                    abrir_detalhes(c),
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -105,19 +163,16 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
     def atualizar_lista(texto=""):
         lista.controls.clear()
 
+        texto = (texto or "").strip().lower()
+
         filtradas = [
-            c for c in COMANDAS
-            if c["status"] == "fechada"
-            and (
-                texto.lower() in c["cliente"].lower()
-                or texto in str(c["id"])
+            comanda
+            for comanda in comandas
+            if (
+                texto in comanda["cliente"].lower()
+                or texto in str(comanda["id"])
             )
         ]
-
-        filtradas.sort(
-            key=lambda c: c.get("fechada_em", ""),
-            reverse=True,
-        )
 
         if not filtradas:
             lista.controls.append(
@@ -125,7 +180,7 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
                     padding=30,
                     alignment=ft.Alignment.CENTER,
                     content=ft.Column(
-                        [
+                        controls=[
                             ft.Icon(
                                 ft.Icons.RECEIPT_LONG,
                                 size=48,
@@ -143,7 +198,9 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
             )
         else:
             for comanda in filtradas:
-                lista.controls.append(criar_card(comanda))
+                lista.controls.append(
+                    criar_card(comanda)
+                )
 
         lista.update()
 
@@ -158,14 +215,35 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
                 width=1,
             ),
         ),
-        on_change=lambda e: atualizar_lista(
-            e.control.value or ""
-        ),
+        on_change=lambda e:
+            atualizar_lista(e.control.value or ""),
     )
 
-    total_fechadas = sum(
-        1 for c in COMANDAS
-        if c["status"] == "fechada"
+    total_fechadas = len(comandas)
+
+    cabecalho = ft.Row(
+        controls=[
+            ft.IconButton(
+                icon=ft.Icons.ARROW_BACK,
+                icon_color=C.TEXT,
+                on_click=lambda e: voltar(),
+            ),
+            ft.Text(
+                "Comandas Fechadas",
+                size=20,
+                weight=ft.FontWeight.BOLD,
+                expand=True,
+            ),
+            ft.Container(
+                bgcolor="#193424",
+                border_radius=20,
+                padding=8,
+                content=ft.Text(
+                    str(total_fechadas),
+                    color=C.GREEN,
+                ),
+            ),
+        ]
     )
 
     page.clean()
@@ -177,34 +255,11 @@ def comandas_fechadas_screen(page, voltar, abrir_detalhes):
         ft.SafeArea(
             expand=True,
             content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.IconButton(
-                                icon=ft.Icons.ARROW_BACK,
-                                icon_color=C.TEXT,
-                                on_click=lambda e: voltar(),
-                            ),
-                            ft.Text(
-                                "Comandas Fechadas",
-                                size=20,
-                                weight=ft.FontWeight.BOLD,
-                                expand=True,
-                            ),
-                            ft.Container(
-                                bgcolor="#193424",
-                                border_radius=20,
-                                padding=8,
-                                content=ft.Text(
-                                    str(total_fechadas),
-                                    color=C.GREEN,
-                                ),
-                            ),
-                        ]
-                    ),
+                controls=[
+                    cabecalho,
                     pesquisa,
                     ft.Column(
-                        [lista],
+                        controls=[lista],
                         expand=True,
                         scroll=ft.ScrollMode.AUTO,
                     ),

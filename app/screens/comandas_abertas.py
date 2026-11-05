@@ -1,12 +1,49 @@
 
 import flet as ft
+from datetime import datetime
+from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from app.theme.colors import AppColors as C
-from app.data.comandas import COMANDAS, calcular_total, formatar_moeda
+from app.services.comandas_service import (
+    listar_comandas_abertas_bd,
+    buscar_detalhes_comanda_bd,
+)
 
 
-def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
+def formatar_moeda(valor):
+    numero = Decimal(str(valor))
+    return (
+        f"R$ {numero:,.2f}"
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
 
+
+def formatar_horario(data_iso):
+    if not data_iso:
+        return "Horário indisponível"
+
+    try:
+        data = datetime.fromisoformat(
+            data_iso.replace("Z", "+00:00")
+        )
+        data = data.astimezone(
+            ZoneInfo("America/Sao_Paulo")
+        )
+        return data.strftime("%d/%m/%Y às %H:%M")
+    except (ValueError, TypeError):
+        return "Horário indisponível"
+
+
+def comandas_abertas_screen(
+    page: ft.Page,
+    voltar,
+    abrir_detalhes,
+    abrir_nova,
+    cliente_supabase,
+):
     lista = ft.Column(spacing=12)
 
     def mensagem(texto):
@@ -14,9 +51,31 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
             ft.SnackBar(content=ft.Text(texto))
         )
 
+    try:
+        registros = listar_comandas_abertas_bd(
+            cliente_supabase
+        )
+
+        comandas = []
+
+        for registro in registros:
+            detalhes = buscar_detalhes_comanda_bd(
+                cliente_supabase,
+                registro["id"],
+            )
+            comandas.append(detalhes)
+
+    except Exception as erro:
+        print(f"Erro ao carregar comandas: {erro}")
+        mensagem(
+            "Não foi possível carregar as comandas."
+        )
+        comandas = []
+
     def criar_card(comanda):
         quantidade = sum(
-            item["quantidade"] for item in comanda["produtos"]
+            item["quantidade"]
+            for item in comanda["itens"]
         )
 
         return ft.Container(
@@ -25,9 +84,9 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
             border_radius=14,
             padding=14,
             content=ft.Column(
-                [
+                controls=[
                     ft.Row(
-                        [
+                        controls=[
                             ft.Container(
                                 bgcolor=C.RED,
                                 border_radius=10,
@@ -42,20 +101,23 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
                                 ),
                             ),
                             ft.Column(
-                                [
+                                controls=[
                                     ft.Text(
                                         comanda["cliente"],
                                         size=15,
                                         weight=ft.FontWeight.BOLD,
+                                        color=C.TEXT,
                                     ),
                                     ft.Text(
-                                        comanda["horario"],
+                                        formatar_horario(
+                                            comanda["aberta_em"]
+                                        ),
                                         size=12,
                                         color=C.TEXT_SECONDARY,
                                     ),
                                     ft.Text(
                                         f"{quantidade} itens | "
-                                        f"{formatar_moeda(calcular_total(comanda))}",
+                                        f"{formatar_moeda(comanda['total'])}",
                                         size=12,
                                         color=C.TEXT_SECONDARY,
                                     ),
@@ -74,7 +136,8 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
                         bgcolor=C.PRIMARY,
                         color=C.BACKGROUND,
                         width=float("inf"),
-                        on_click=lambda e: abrir_detalhes(comanda),
+                        on_click=lambda e, c=comanda:
+                            abrir_detalhes(c),
                     ),
                 ],
                 spacing=12,
@@ -84,12 +147,14 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
     def atualizar_lista(texto=""):
         lista.controls.clear()
 
+        texto = (texto or "").strip().lower()
+
         filtradas = [
-            c for c in COMANDAS
-            if c["status"] == "aberta"
-            and (
-                texto.lower() in c["cliente"].lower()
-                or texto in str(c["id"])
+            comanda
+            for comanda in comandas
+            if (
+                texto in comanda["cliente"].lower()
+                or texto in str(comanda["id"])
             )
         ]
 
@@ -102,7 +167,9 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
             )
         else:
             for comanda in filtradas:
-                lista.controls.append(criar_card(comanda))
+                lista.controls.append(
+                    criar_card(comanda)
+                )
 
         lista.update()
 
@@ -117,11 +184,12 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
                 width=1,
             ),
         ),
-        on_change=lambda e: atualizar_lista(e.control.value),
+        on_change=lambda e:
+            atualizar_lista(e.control.value),
     )
 
     cabecalho = ft.Row(
-        [
+        controls=[
             ft.IconButton(
                 icon=ft.Icons.ARROW_BACK,
                 icon_color=C.TEXT,
@@ -138,12 +206,7 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
                 border_radius=20,
                 padding=8,
                 content=ft.Text(
-                    str(
-                        sum(
-                            1 for c in COMANDAS
-                            if c["status"] == "aberta"
-                        )
-                    ),
+                    str(len(comandas)),
                     color=C.TEXT,
                 ),
             ),
@@ -159,12 +222,12 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
         ft.SafeArea(
             expand=True,
             content=ft.Column(
-                [
+                controls=[
                     cabecalho,
                     pesquisa,
                     ft.Container(height=8),
                     ft.Column(
-                        [lista],
+                        controls=[lista],
                         expand=True,
                         scroll=ft.ScrollMode.AUTO,
                     ),
@@ -174,7 +237,7 @@ def comandas_abertas_screen(page: ft.Page, voltar, abrir_detalhes, abrir_nova):
                         color=C.BACKGROUND,
                         height=52,
                         width=float("inf"),
-                       on_click=lambda e: abrir_nova(),
+                        on_click=lambda e: abrir_nova(),
                     ),
                 ],
                 expand=True,

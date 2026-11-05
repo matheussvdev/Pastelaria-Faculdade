@@ -1,13 +1,42 @@
 
 import flet as ft
+
 from datetime import datetime
+from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from app.theme.colors import AppColors as C
-from app.data.comandas import (
-    calcular_total,
-    formatar_moeda,
-    fechar_comanda,
-)
+from app.services.comandas_service import fechar_comanda_bd
+
+
+def formatar_moeda(valor):
+    numero = Decimal(str(valor))
+
+    return (
+        f"R$ {numero:,.2f}"
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
+
+
+def formatar_data(data_iso):
+    if not data_iso:
+        return "Data indisponível"
+
+    try:
+        data = datetime.fromisoformat(
+            data_iso.replace("Z", "+00:00")
+        )
+
+        data = data.astimezone(
+            ZoneInfo("America/Sao_Paulo")
+        )
+
+        return data.strftime("%d/%m/%Y às %H:%M")
+
+    except (ValueError, TypeError):
+        return "Data indisponível"
 
 
 def detalhes_comanda_screen(
@@ -16,18 +45,28 @@ def detalhes_comanda_screen(
     voltar,
     atualizar,
     adicionar_itens,
+    cliente_supabase,
 ):
     fechada = comanda["status"] == "fechada"
 
+    def mostrar_mensagem(texto):
+        page.show_dialog(
+            ft.SnackBar(
+                content=ft.Text(texto)
+            )
+        )
+
     def criar_item(item):
-        subtotal = item["quantidade"] * item["preco"]
+        quantidade = item["quantidade"]
+        preco = item["preco_unitario"]
+        subtotal = item["subtotal"]
 
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=10),
             content=ft.Row(
-                [
+                controls=[
                     ft.Column(
-                        [
+                        controls=[
                             ft.Text(
                                 item["nome"],
                                 size=15,
@@ -35,8 +74,8 @@ def detalhes_comanda_screen(
                                 color=C.TEXT,
                             ),
                             ft.Text(
-                                f'{item["quantidade"]} x '
-                                f'{formatar_moeda(item["preco"])}',
+                                f"{quantidade} x "
+                                f"{formatar_moeda(preco)}",
                                 size=13,
                                 color=C.TEXT_SECONDARY,
                             ),
@@ -58,17 +97,30 @@ def detalhes_comanda_screen(
         if comanda["status"] != "aberta":
             return
 
-        fechar_comanda(comanda)
+        try:
+            total_fechado = fechar_comanda_bd(
+                cliente_supabase,
+                int(comanda["id"]),
+            )
+
+        except Exception as erro:
+            print(f"Erro ao fechar comanda: {erro}")
+            page.pop_dialog()
+            mostrar_mensagem(
+                "Não foi possível fechar a comanda. "
+                "Verifique a conexão e tente novamente."
+            )
+            return
+
+        comanda["status"] = "fechada"
+        comanda["total"] = total_fechado
 
         page.pop_dialog()
         atualizar()
 
-        page.show_dialog(
-            ft.SnackBar(
-                content=ft.Text(
-                    "Comanda fechada com sucesso!"
-                )
-            )
+        mostrar_mensagem(
+            f"Comanda fechada com sucesso! "
+            f"Total: {formatar_moeda(total_fechado)}"
         )
 
     def solicitar_fechamento(e):
@@ -82,7 +134,7 @@ def detalhes_comanda_screen(
                 content=ft.Text(
                     f'Confirma o fechamento da comanda de '
                     f'{comanda["cliente"]} no valor de '
-                    f'{formatar_moeda(calcular_total(comanda))}?'
+                    f'{formatar_moeda(comanda["total"])}?'
                 ),
                 actions=[
                     ft.TextButton(
@@ -99,25 +151,31 @@ def detalhes_comanda_screen(
 
     itens = [
         criar_item(item)
-        for item in comanda["produtos"]
+        for item in comanda["itens"]
     ]
 
-    total = calcular_total(comanda)
+    if not itens:
+        itens = [
+            ft.Text(
+                "Esta comanda não possui itens.",
+                color=C.TEXT_SECONDARY,
+            )
+        ]
 
-    # Identifica a data de fechamento
+    texto_abertura = formatar_data(
+        comanda.get("aberta_em")
+    )
+
     fechamento = comanda.get("fechada_em")
 
-    if fechamento:
-        data_fechamento = datetime.fromisoformat(fechamento)
-        texto_fechamento = data_fechamento.strftime(
-            "%d/%m/%Y às %H:%M"
-        )
-    else:
-        texto_fechamento = None
+    texto_fechamento = (
+        formatar_data(fechamento)
+        if fechamento
+        else None
+    )
 
-    # Cabeçalho
     cabecalho = ft.Row(
-        [
+        controls=[
             ft.IconButton(
                 icon=ft.Icons.ARROW_BACK,
                 icon_color=C.TEXT,
@@ -129,10 +187,9 @@ def detalhes_comanda_screen(
                 weight=ft.FontWeight.BOLD,
                 expand=True,
             ),
-        ]
+        ],
     )
 
-    # Informações da comanda
     informacoes = [
         ft.Text(
             comanda["cliente"],
@@ -146,7 +203,7 @@ def detalhes_comanda_screen(
             weight=ft.FontWeight.BOLD,
         ),
         ft.Text(
-            f'Abertura: {comanda["horario"]}',
+            f"Abertura: {texto_abertura}",
             color=C.TEXT_SECONDARY,
         ),
     ]
@@ -166,7 +223,7 @@ def detalhes_comanda_screen(
             *itens,
             ft.Divider(color=C.BORDER),
             ft.Row(
-                [
+                controls=[
                     ft.Text(
                         "Total",
                         size=19,
@@ -174,7 +231,7 @@ def detalhes_comanda_screen(
                         color=C.TEXT,
                     ),
                     ft.Text(
-                        formatar_moeda(total),
+                        formatar_moeda(comanda["total"]),
                         size=24,
                         weight=ft.FontWeight.BOLD,
                         color=C.PRIMARY,
@@ -185,29 +242,27 @@ def detalhes_comanda_screen(
         ]
     )
 
-    # Cartão principal
     cartao = ft.Container(
         bgcolor=C.SURFACE,
         border_radius=14,
         padding=16,
         content=ft.Column(
-            informacoes,
+            controls=informacoes,
             spacing=12,
         ),
     )
 
-    # Botões de ação
     botoes = ft.Column(
-        [
-            ft.Button(
-                content="Adicionar mais itens",
-                bgcolor=C.PRIMARY,
-                color=C.BACKGROUND,
-                height=54,
-                width=float("inf"),
-                visible=not fechada,
-                on_click=lambda e: adicionar_itens(),
-            ),
+        controls=[
+           ft.Button(
+    content="Adicionar mais itens",
+    bgcolor=C.PRIMARY,
+    color=C.BACKGROUND,
+    height=54,
+    width=float("inf"),
+    visible=not fechada,
+    on_click=lambda e: adicionar_itens(),
+),
             ft.OutlinedButton(
                 content="Fechar comanda",
                 height=54,
@@ -215,13 +270,20 @@ def detalhes_comanda_screen(
                 visible=not fechada,
                 on_click=solicitar_fechamento,
             ),
+            ft.Text(
+                "A adição de itens será habilitada "
+                "na próxima etapa.",
+                size=12,
+                color=C.TEXT_SECONDARY,
+                visible=not fechada,
+                text_align=ft.TextAlign.CENTER,
+            ),
         ],
         spacing=12,
     )
 
-    # Estrutura da tela
     conteudo = ft.Column(
-        [
+        controls=[
             cabecalho,
             cartao,
             botoes,
