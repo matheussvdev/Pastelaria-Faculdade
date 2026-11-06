@@ -13,33 +13,23 @@ def perfil_screen(
     salvar_foto=None,
     remover_foto=None,
     foto_bytes=None,
+    alterar_senha=None,
 ):
     usuario = usuario or {}
 
     nome = usuario.get("nome") or "Usuário"
     email = usuario.get("email") or "Não informado"
     funcao = usuario.get("funcao", "atendente")
-
     administrador = funcao == "admin"
 
     nome_funcao = (
         "Administrador" if administrador else "Funcionário"
     )
 
-    # =========================================
-    # MENSAGENS
-    # =========================================
-
     def mostrar_mensagem(texto):
         page.show_dialog(
-            ft.SnackBar(
-                content=ft.Text(texto)
-            )
+            ft.SnackBar(content=ft.Text(texto))
         )
-
-    # =========================================
-    # NAVEGAÇÃO
-    # =========================================
 
     def executar_voltar(e):
         if voltar is not None:
@@ -59,10 +49,11 @@ def perfil_screen(
             salvar_foto=salvar_foto,
             remover_foto=remover_foto,
             foto_bytes=usuario.get("_foto_bytes"),
+            alterar_senha=alterar_senha,
         )
 
     # =========================================
-    # EDIÇÃO DO NOME
+    # EDITAR NOME
     # =========================================
 
     campo_nome = ft.TextField(
@@ -79,15 +70,9 @@ def perfil_screen(
     def confirmar_nome(e):
         novo_nome = (campo_nome.value or "").strip()
 
-        if len(novo_nome) < 3:
+        if not 3 <= len(novo_nome) <= 100:
             mostrar_mensagem(
-                "O nome deve ter pelo menos 3 caracteres."
-            )
-            return
-
-        if len(novo_nome) > 100:
-            mostrar_mensagem(
-                "O nome deve ter no máximo 100 caracteres."
+                "O nome deve ter entre 3 e 100 caracteres."
             )
             return
 
@@ -113,26 +98,151 @@ def perfil_screen(
     def abrir_edicao(e):
         campo_nome.value = usuario.get("nome") or ""
 
-        dialogo = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Editar nome"),
-            content=campo_nome,
-            actions=[
-                ft.TextButton(
-                    "Cancelar",
-                    on_click=fechar_edicao,
-                ),
-                ft.TextButton(
-                    "Salvar",
-                    on_click=confirmar_nome,
-                ),
-            ],
+        page.show_dialog(
+            ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Editar nome"),
+                content=campo_nome,
+                actions=[
+                    ft.TextButton(
+                        "Cancelar",
+                        on_click=fechar_edicao,
+                    ),
+                    ft.TextButton(
+                        "Salvar",
+                        on_click=confirmar_nome,
+                    ),
+                ],
+            )
         )
 
-        page.show_dialog(dialogo)
+    # =========================================
+    # ALTERAR SENHA
+    # =========================================
+
+    campo_senha_atual = ft.TextField(
+        label="Senha atual",
+        password=True,
+        can_reveal_password=True,
+        border_color=C.PRIMARY,
+        focused_border_color=C.PRIMARY,
+    )
+
+    campo_nova_senha = ft.TextField(
+        label="Nova senha",
+        password=True,
+        can_reveal_password=True,
+        border_color=C.PRIMARY,
+        focused_border_color=C.PRIMARY,
+    )
+
+    campo_confirmar_senha = ft.TextField(
+        label="Confirmar nova senha",
+        password=True,
+        can_reveal_password=True,
+        border_color=C.PRIMARY,
+        focused_border_color=C.PRIMARY,
+    )
+
+    def fechar_dialogo_senha(e=None):
+        page.pop_dialog()
+
+    def confirmar_alteracao_senha(e):
+        senha_atual = campo_senha_atual.value or ""
+        nova_senha = campo_nova_senha.value or ""
+        confirmacao = campo_confirmar_senha.value or ""
+
+        if not senha_atual or not nova_senha or not confirmacao:
+            mostrar_mensagem("Preencha todos os campos.")
+            return
+
+        if len(nova_senha) < 8:
+            mostrar_mensagem(
+                "A nova senha deve ter pelo menos 8 caracteres."
+            )
+            return
+
+        if nova_senha != confirmacao:
+            mostrar_mensagem(
+                "A confirmação não corresponde à nova senha."
+            )
+            return
+
+        if nova_senha == senha_atual:
+            mostrar_mensagem(
+                "A nova senha deve ser diferente da atual."
+            )
+            return
+
+        if alterar_senha is None:
+            mostrar_mensagem(
+                "A alteração de senha não está disponível."
+            )
+            return
+
+        try:
+            alterar_senha(senha_atual, nova_senha)
+
+        except ValueError as erro:
+            mostrar_mensagem(str(erro))
+            return
+
+        except Exception as erro:
+            print(f"Erro ao alterar senha: {erro}")
+            mostrar_mensagem(
+                "Não foi possível alterar a senha. "
+                "Verifique sua conexão e tente novamente."
+            )
+            return
+
+        campo_senha_atual.value = ""
+        campo_nova_senha.value = ""
+        campo_confirmar_senha.value = ""
+
+        fechar_dialogo_senha()
+        mostrar_mensagem("Senha alterada com sucesso!")
+
+    def abrir_alteracao_senha(e):
+        campo_senha_atual.value = ""
+        campo_nova_senha.value = ""
+        campo_confirmar_senha.value = ""
+
+        page.show_dialog(
+            ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Alterar senha"),
+                content=ft.Column(
+                    controls=[
+                        ft.Text(
+                            "Informe sua senha atual e escolha "
+                            "uma nova senha com pelo menos "
+                            "8 caracteres.",
+                            size=13,
+                            color=C.TEXT_SECONDARY,
+                        ),
+                        campo_senha_atual,
+                        campo_nova_senha,
+                        campo_confirmar_senha,
+                    ],
+                    spacing=12,
+                    tight=True,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                actions=[
+                    ft.TextButton(
+                        "Cancelar",
+                        on_click=fechar_dialogo_senha,
+                    ),
+                    ft.TextButton(
+                        "Salvar senha",
+                        on_click=confirmar_alteracao_senha,
+                    ),
+                ],
+            )
+        )
 
     # =========================================
-    # SELETOR DE FOTO
+    # FOTO DE PERFIL
     # =========================================
 
     seletor_foto = ft.FilePicker()
@@ -150,10 +260,7 @@ def perfil_screen(
                 dialog_title="Escolher foto de perfil",
                 file_type=ft.FilePickerFileType.CUSTOM,
                 allowed_extensions=[
-                    "jpg",
-                    "jpeg",
-                    "png",
-                    "webp",
+                    "jpg", "jpeg", "png", "webp"
                 ],
                 allow_multiple=False,
                 with_data=True,
@@ -201,9 +308,7 @@ def perfil_screen(
         try:
             remover_foto()
             atualizar_tela()
-            mostrar_mensagem(
-                "Foto removida com sucesso!"
-            )
+            mostrar_mensagem("Foto removida com sucesso!")
 
         except Exception as erro:
             print(f"Erro ao remover foto: {erro}")
@@ -215,12 +320,7 @@ def perfil_screen(
     # COMPONENTES
     # =========================================
 
-    def campo_informacao(
-        titulo,
-        valor,
-        icone,
-        acao=None,
-    ):
+    def campo_informacao(titulo, valor, icone, acao=None):
         controles = [
             ft.Icon(
                 icone,
@@ -267,7 +367,7 @@ def perfil_screen(
         )
 
     # =========================================
-    # FOTO OU ÍCONE PADRÃO
+    # AVATAR
     # =========================================
 
     dados_foto = usuario.get("_foto_bytes", foto_bytes)
@@ -394,28 +494,49 @@ def perfil_screen(
             ft.Container(height=16),
             identificacao,
             ft.Container(height=18),
+
             ft.Text(
                 "INFORMAÇÕES DA CONTA",
                 size=13,
                 weight=ft.FontWeight.BOLD,
                 color=C.PRIMARY,
             ),
+
             campo_informacao(
                 "Nome",
                 nome,
                 ft.Icons.PERSON_OUTLINE,
                 acao=abrir_edicao,
             ),
+
             campo_informacao(
                 "E-mail",
                 email,
                 ft.Icons.EMAIL_OUTLINED,
             ),
+
             campo_informacao(
                 "Nível de acesso",
                 nome_funcao,
                 ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED,
             ),
+
+            ft.Container(height=14),
+
+            ft.Text(
+                "SEGURANÇA DA CONTA",
+                size=13,
+                weight=ft.FontWeight.BOLD,
+                color=C.PRIMARY,
+            ),
+
+            campo_informacao(
+                "Senha",
+                "Alterar senha de acesso",
+                ft.Icons.LOCK_OUTLINE,
+                acao=abrir_alteracao_senha,
+            ),
+
             ft.Container(height=18),
             botao_sair,
         ],

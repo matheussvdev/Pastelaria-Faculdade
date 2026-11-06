@@ -17,28 +17,35 @@ def home_screen(
     usuario = usuario or {}
 
     nome = usuario.get("nome") or "Usuário"
-    funcao = usuario.get("funcao", "atendente")
-    administrador = funcao == "admin"
+    primeiro_nome = nome.split()[0]
+    administrador = usuario.get("funcao") == "admin"
     foto_bytes = usuario.get("_foto_bytes")
 
     nome_funcao = (
         "Administrador" if administrador else "Funcionário"
     )
 
-    # =========================================
-    # MENSAGENS
-    # =========================================
+    FUNDO = C.BACKGROUND
+    SUPERFICIE = C.SURFACE
+    AMARELO = C.PRIMARY
+    TEXTO = C.TEXT
+    SECUNDARIO = C.TEXT_SECONDARY
+    BORDA = C.BORDER
+    VERMELHO = C.RED
+
+    def criar_borda(cor, largura=1):
+        lado = ft.BorderSide(width=largura, color=cor)
+        return ft.Border(
+            left=lado,
+            top=lado,
+            right=lado,
+            bottom=lado,
+        )
 
     def mostrar_mensagem(texto):
         page.show_dialog(
-            ft.SnackBar(
-                content=ft.Text(texto)
-            )
+            ft.SnackBar(content=ft.Text(texto))
         )
-
-    # =========================================
-    # EXECUTAR AÇÕES
-    # =========================================
 
     def executar_acao(acao, titulo):
         if acao is not None:
@@ -49,7 +56,7 @@ def home_screen(
             )
 
     # =========================================
-    # FOTO DE PERFIL
+    # AVATAR
     # =========================================
 
     def criar_avatar(tamanho):
@@ -66,75 +73,68 @@ def home_screen(
         return ft.Icon(
             ft.Icons.ACCOUNT_CIRCLE,
             size=tamanho,
-            color=C.PRIMARY,
+            color=AMARELO,
         )
 
     # =========================================
-    # CRIAR ATALHOS
+    # CARTÕES DE ATALHO
     # =========================================
 
     def criar_atalho(
         titulo,
+        descricao,
         icone,
-        acao=None,
-        destaque=False,
-        subtitulo=None,
+        acao,
+        cor_icone=None,
     ):
-        cor_fundo = C.PRIMARY if destaque else C.SURFACE
-        cor_texto = C.BACKGROUND if destaque else C.TEXT
-
-        conteudo = [
-            ft.Icon(
-                icone,
-                size=34,
-                color=cor_texto,
-            ),
-            ft.Text(
-                titulo,
-                size=15,
-                weight=ft.FontWeight.BOLD,
-                color=cor_texto,
-                text_align=ft.TextAlign.CENTER,
-            ),
-        ]
-
-        if subtitulo:
-            conteudo.append(
-                ft.Text(
-                    subtitulo,
-                    color=cor_texto,
-                    size=12,
-                    text_align=ft.TextAlign.CENTER,
-                )
-            )
+        cor_icone = cor_icone or AMARELO
 
         return ft.Container(
-            content=ft.Column(
-                controls=conteudo,
-                alignment=ft.MainAxisAlignment.CENTER,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=10,
-            ),
-            bgcolor=cor_fundo,
-            border_radius=14,
-            padding=14,
-            height=145,
             expand=True,
-            on_click=lambda e: executar_acao(
-                acao,
-                titulo.replace("\n", " "),
+            height=172,
+            bgcolor=SUPERFICIE,
+            border=criar_borda(BORDA),
+            border_radius=18,
+            padding=16,
+            on_click=lambda e: executar_acao(acao, titulo),
+            content=ft.Column(
+                controls=[
+                    ft.Container(
+                        width=48,
+                        height=48,
+                        bgcolor=FUNDO,
+                        border_radius=14,
+                        alignment=ft.Alignment.CENTER,
+                        content=ft.Icon(
+                            icone,
+                            size=27,
+                            color=cor_icone,
+                        ),
+                    ),
+                    ft.Text(
+                        titulo,
+                        size=15,
+                        weight=ft.FontWeight.BOLD,
+                        color=TEXTO,
+                        max_lines=2,
+                    ),
+                    ft.Text(
+                        descricao,
+                        size=11,
+                        color=SECUNDARIO,
+                        max_lines=2,
+                    ),
+                ],
+                spacing=9,
             ),
         )
 
     # =========================================
-    # MENU LATERAL DESLIZANTE
+    # MENU LATERAL
     # =========================================
 
     async def abrir_menu(e=None):
         await page.show_drawer()
-
-    def navegar_menu(acao, titulo):
-        executar_acao(acao, titulo)
 
     destinos_menu = [
         ft.NavigationDrawerDestination(
@@ -144,7 +144,6 @@ def home_screen(
         ),
         ft.NavigationDrawerDestination(
             icon=ft.Icons.RECEIPT_LONG_OUTLINED,
-            selected_icon=ft.Icons.RECEIPT_LONG,
             label="Comandas abertas",
         ),
         ft.NavigationDrawerDestination(
@@ -171,10 +170,6 @@ def home_screen(
         "Novo pedido",
     ]
 
-    # =========================================
-    # OPÇÕES DO ADMINISTRADOR
-    # =========================================
-
     if administrador:
         destinos_menu.extend([
             ft.NavigationDrawerDestination(
@@ -197,10 +192,6 @@ def home_screen(
             "Análises de vendas",
         ])
 
-    # =========================================
-    # PERFIL NO MENU
-    # =========================================
-
     destinos_menu.append(
         ft.NavigationDrawerDestination(
             icon=ft.Icons.ACCOUNT_CIRCLE_OUTLINED,
@@ -210,10 +201,6 @@ def home_screen(
 
     acoes_menu.append(abrir_perfil)
     titulos_menu.append("Meu perfil")
-
-    # =========================================
-    # SELEÇÃO DO MENU
-    # =========================================
 
     async def selecionar_item_menu(e):
         indice = e.control.selected_index
@@ -226,14 +213,10 @@ def home_screen(
         if indice == 0:
             return
 
-        navegar_menu(
+        executar_acao(
             acoes_menu[indice],
             titulos_menu[indice],
         )
-
-    # =========================================
-    # CABEÇALHO DO MENU HAMBÚRGUER
-    # =========================================
 
     cabecalho_menu = ft.Container(
         padding=20,
@@ -244,12 +227,12 @@ def home_screen(
                     nome,
                     size=18,
                     weight=ft.FontWeight.BOLD,
-                    color=C.TEXT,
+                    color=TEXTO,
                 ),
                 ft.Text(
                     nome_funcao,
                     size=12,
-                    color=C.TEXT_SECONDARY,
+                    color=SECUNDARIO,
                 ),
             ],
             spacing=8,
@@ -257,24 +240,25 @@ def home_screen(
     )
 
     menu_lateral = ft.NavigationDrawer(
-        bgcolor=C.SURFACE,
+        bgcolor=SUPERFICIE,
         selected_index=0,
         on_change=selecionar_item_menu,
         controls=[
             cabecalho_menu,
-            ft.Divider(color=C.BORDER),
+            ft.Divider(color=BORDA),
             *destinos_menu,
         ],
     )
 
     # =========================================
-    # CABEÇALHO DA HOME
+    # CABEÇALHO
     # =========================================
 
     botao_perfil = ft.Container(
-        width=46,
-        height=46,
-        border_radius=23,
+        width=48,
+        height=48,
+        border_radius=24,
+        border=criar_borda(BORDA),
         alignment=ft.Alignment.CENTER,
         content=criar_avatar(42),
         on_click=lambda e: executar_acao(
@@ -288,21 +272,21 @@ def home_screen(
         controls=[
             ft.IconButton(
                 icon=ft.Icons.MENU,
-                icon_color=C.TEXT,
+                icon_color=TEXTO,
                 on_click=abrir_menu,
             ),
             ft.Column(
                 controls=[
                     ft.Text(
                         "PASTELARIA",
-                        size=22,
+                        size=21,
                         weight=ft.FontWeight.BOLD,
-                        color=C.TEXT,
+                        color=TEXTO,
                     ),
                     ft.Text(
                         "SABOR EM CADA MORDIDA",
                         size=9,
-                        color=C.PRIMARY,
+                        color=AMARELO,
                     ),
                 ],
                 spacing=0,
@@ -314,74 +298,207 @@ def home_screen(
     )
 
     # =========================================
-    # ATALHOS PRINCIPAIS
+    # BOAS-VINDAS
     # =========================================
 
-    atalhos = ft.Column(
+    boas_vindas = ft.Column(
+        controls=[
+            ft.Text(
+                f"Olá, {primeiro_nome}!",
+                size=28,
+                weight=ft.FontWeight.BOLD,
+                color=TEXTO,
+            ),
+            ft.Text(
+                (
+                    "Gerencie sua pastelaria com praticidade."
+                    if administrador
+                    else "Pronto para mais um dia de atendimento?"
+                ),
+                size=13,
+                color=SECUNDARIO,
+            ),
+            ft.Container(
+                padding=ft.Padding.symmetric(
+                    horizontal=12,
+                    vertical=7,
+                ),
+                bgcolor=SUPERFICIE,
+                border_radius=20,
+                content=ft.Row(
+                    controls=[
+                        ft.Icon(
+                            ft.Icons.VERIFIED_USER_OUTLINED,
+                            size=16,
+                            color=AMARELO,
+                        ),
+                        ft.Text(
+                            nome_funcao,
+                            size=12,
+                            weight=ft.FontWeight.BOLD,
+                            color=AMARELO,
+                        ),
+                    ],
+                    spacing=7,
+                    tight=True,
+                ),
+            ),
+        ],
+        spacing=9,
+        horizontal_alignment=ft.CrossAxisAlignment.START,
+    )
+
+    # =========================================
+    # AÇÃO PRINCIPAL
+    # =========================================
+
+    novo_pedido = ft.Container(
+        bgcolor=AMARELO,
+        border_radius=20,
+        padding=20,
+        on_click=lambda e: executar_acao(
+            abrir_nova,
+            "Novo pedido",
+        ),
+        content=ft.Row(
+            controls=[
+                ft.Container(
+                    width=56,
+                    height=56,
+                    border_radius=16,
+                    bgcolor=FUNDO,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Icon(
+                        ft.Icons.ADD_SHOPPING_CART,
+                        size=29,
+                        color=AMARELO,
+                    ),
+                ),
+                ft.Column(
+                    controls=[
+                        ft.Text(
+                            "Novo pedido",
+                            size=19,
+                            weight=ft.FontWeight.BOLD,
+                            color=FUNDO,
+                        ),
+                        ft.Text(
+                            "Registrar uma nova comanda",
+                            size=12,
+                            color=FUNDO,
+                        ),
+                    ],
+                    spacing=4,
+                    expand=True,
+                ),
+                ft.Icon(
+                    ft.Icons.ARROW_FORWARD_IOS,
+                    color=FUNDO,
+                    size=18,
+                ),
+            ],
+            spacing=14,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+    )
+
+    # =========================================
+    # COMANDAS
+    # =========================================
+
+    secao_comandas = ft.Column(
         controls=[
             ft.Row(
                 controls=[
-                    criar_atalho(
-                        "Comandas\nAbertas",
-                        ft.Icons.RECEIPT_LONG,
-                        acao=abrir_comandas,
-                        destaque=True,
+                    ft.Text(
+                        "Gerenciar comandas",
+                        size=19,
+                        weight=ft.FontWeight.BOLD,
+                        color=TEXTO,
                     ),
-                    criar_atalho(
-                        "Comandas\nFechadas",
-                        ft.Icons.CHECK_CIRCLE_OUTLINE,
-                        acao=abrir_fechadas,
+                    ft.Icon(
+                        ft.Icons.RECEIPT_LONG_OUTLINED,
+                        size=20,
+                        color=AMARELO,
                     ),
                 ],
-                spacing=12,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
             ft.Row(
                 controls=[
                     criar_atalho(
-                        "Novo Pedido",
-                        ft.Icons.ADD_CIRCLE_OUTLINE,
-                        acao=abrir_nova,
+                        "Comandas abertas",
+                        "Pedidos em andamento",
+                        ft.Icons.RECEIPT_LONG,
+                        abrir_comandas,
+                        AMARELO,
+                    ),
+                    criar_atalho(
+                        "Comandas fechadas",
+                        "Histórico de pedidos",
+                        ft.Icons.CHECK_CIRCLE_OUTLINE,
+                        abrir_fechadas,
+                        VERMELHO,
                     ),
                 ],
                 spacing=12,
             ),
         ],
-        spacing=12,
+        spacing=14,
     )
 
     # =========================================
-    # ÁREA ADMINISTRATIVA
+    # ADMINISTRAÇÃO
     # =========================================
 
-    if administrador:
-        atalhos.controls.append(
-            ft.Container(
-                padding=ft.Padding.only(top=12),
-                content=ft.Text(
-                    "ADMINISTRAÇÃO",
-                    size=13,
-                    weight=ft.FontWeight.BOLD,
-                    color=C.PRIMARY,
-                ),
-            )
-        )
+    secao_admin = None
 
-        atalhos.controls.append(
-            ft.Row(
-                controls=[
-                    criar_atalho(
-                        "Gerenciar\nCardápio",
-                        ft.Icons.RESTAURANT_MENU,
-                        acao=abrir_cardapio,
-                    ),
-                    criar_atalho(
-                        "Análises de\nVendas",
-                        ft.Icons.BAR_CHART,
-                        acao=abrir_analises,
-                    ),
-                ],
-                spacing=12,
-            )
+    if administrador:
+        secao_admin = ft.Column(
+            controls=[
+                ft.Divider(color=BORDA),
+                ft.Row(
+                    controls=[
+                        ft.Text(
+                            "Administração",
+                            size=19,
+                            weight=ft.FontWeight.BOLD,
+                            color=TEXTO,
+                        ),
+                        ft.Icon(
+                            ft.Icons.ADMIN_PANEL_SETTINGS_OUTLINED,
+                            color=AMARELO,
+                            size=22,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                ft.Text(
+                    "Ferramentas exclusivas do administrador",
+                    size=12,
+                    color=SECUNDARIO,
+                ),
+                ft.Row(
+                    controls=[
+                        criar_atalho(
+                            "Gerenciar cardápio",
+                            "Produtos e preços",
+                            ft.Icons.RESTAURANT_MENU,
+                            abrir_cardapio,
+                            AMARELO,
+                        ),
+                        criar_atalho(
+                            "Análises de vendas",
+                            "Resultados do negócio",
+                            ft.Icons.BAR_CHART,
+                            abrir_analises,
+                            VERMELHO,
+                        ),
+                    ],
+                    spacing=12,
+                ),
+            ],
+            spacing=12,
         )
 
     # =========================================
@@ -404,8 +521,8 @@ def home_screen(
 
     navegacao = ft.NavigationBar(
         selected_index=0,
-        bgcolor=C.BACKGROUND,
-        indicator_color=C.SURFACE,
+        bgcolor=FUNDO,
+        indicator_color=SUPERFICIE,
         destinations=[
             ft.NavigationBarDestination(
                 icon=ft.Icons.HOME_OUTLINED,
@@ -429,39 +546,33 @@ def home_screen(
     # CONTEÚDO PRINCIPAL
     # =========================================
 
-    conteudo = ft.Column(
-        controls=[
-            cabecalho,
-            ft.Container(height=22),
-            ft.Text(
-                f"Olá, {nome}!",
-                size=25,
-                weight=ft.FontWeight.BOLD,
-                color=C.TEXT,
-            ),
-            ft.Text(
-                (
-                    "Painel administrativo"
-                    if administrador
-                    else "Vamos deixar o dia ainda mais saboroso?"
-                ),
-                size=13,
-                color=C.TEXT_SECONDARY,
-            ),
+    controles = [
+        cabecalho,
+        ft.Container(height=16),
+        boas_vindas,
+        ft.Container(height=16),
+        novo_pedido,
+        ft.Container(height=16),
+        secao_comandas,
+    ]
+
+    if secao_admin is not None:
+        controles.extend([
             ft.Container(height=18),
-            atalhos,
-        ],
-        spacing=8,
+            secao_admin,
+        ])
+
+    controles.append(ft.Container(height=20))
+
+    conteudo = ft.Column(
+        controls=controles,
+        spacing=10,
         scroll=ft.ScrollMode.AUTO,
         expand=True,
     )
 
-    # =========================================
-    # EXIBIR TELA
-    # =========================================
-
     page.clean()
-    page.bgcolor = C.BACKGROUND
+    page.bgcolor = FUNDO
     page.padding = 16
     page.navigation_bar = navegacao
     page.drawer = menu_lateral

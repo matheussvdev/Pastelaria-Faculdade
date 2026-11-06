@@ -15,6 +15,7 @@ from app.services.foto_perfil_service import (
 )
 
 from app.screens.login import login_screen
+from app.screens.cadastro import cadastro_screen
 from app.screens.home import home_screen
 from app.screens.comandas_abertas import comandas_abertas_screen
 from app.screens.comandas_fechadas import comandas_fechadas_screen
@@ -94,6 +95,64 @@ def main(page: ft.Page):
         abrir_inicio()
 
     # =========================================
+    # CADASTRO DE FUNCIONÁRIO
+    # =========================================
+
+    def cadastrar_funcionario(nome, email, senha):
+        nome = (nome or "").strip()
+        email = (email or "").strip().lower()
+
+        if not 3 <= len(nome) <= 100:
+            raise ValueError(
+                "O nome deve ter entre 3 e 100 caracteres."
+            )
+
+        if not email or "@" not in email:
+            raise ValueError("Informe um e-mail válido.")
+
+        if not senha or len(senha) < 8:
+            raise ValueError(
+                "A senha deve ter pelo menos 8 caracteres."
+            )
+
+        # Um cliente separado evita alterar a sessão
+        # de quem já estiver autenticado.
+        cliente_cadastro = criar_cliente_supabase()
+
+        try:
+            resposta = cliente_cadastro.auth.sign_up({
+                "email": email,
+                "password": senha,
+                "options": {
+                    "data": {
+                        "nome": nome,
+                    },
+                },
+            })
+
+            if resposta.user is None:
+                raise ValueError(
+                    "O Supabase não confirmou o cadastro."
+                )
+
+            # O trigger do banco deve criar o perfil
+            # com a função padrão de atendente.
+            return resposta.session is None
+
+        finally:
+            # Não fazemos sign_out aqui: em projetos que
+            # compartilham armazenamento de sessão,
+            # isso poderia interferir em outra conta.
+            pass
+
+    def abrir_cadastro():
+        cadastro_screen(
+            page,
+            voltar=abrir_login,
+            cadastrar=cadastrar_funcionario,
+        )
+
+    # =========================================
     # HOME
     # =========================================
 
@@ -122,15 +181,17 @@ def main(page: ft.Page):
             abrir_detalhes=abrir_detalhes,
             abrir_nova=abrir_nova,
             cliente_supabase=cliente_supabase,
+             usuario=usuario_atual,
         )
 
     def abrir_fechadas():
         comandas_fechadas_screen(
-            page,
-            voltar=abrir_inicio,
-            abrir_detalhes=abrir_detalhes,
-            cliente_supabase=cliente_supabase,
-        )
+        page,
+        voltar=abrir_inicio,
+        abrir_detalhes=abrir_detalhes,
+        cliente_supabase=cliente_supabase,
+        usuario=usuario_atual,
+    )
 
     def abrir_detalhes(comanda):
         fechada = comanda["status"] == "fechada"
@@ -147,6 +208,7 @@ def main(page: ft.Page):
     def abrir_nova(comanda=None):
         try:
             produtos = listar_produtos(cliente_supabase)
+
         except Exception as erro:
             print(f"Erro ao carregar produtos: {erro}")
 
@@ -298,6 +360,94 @@ def main(page: ft.Page):
         usuario_atual["_foto_bytes"] = None
 
     # =========================================
+    # ALTERAR SENHA
+    # =========================================
+
+    def alterar_senha_usuario(senha_atual, nova_senha):
+        if usuario_atual is None:
+            raise ValueError("Usuário não autenticado.")
+
+        if not senha_atual or not nova_senha:
+            raise ValueError("Informe as duas senhas.")
+
+        if len(nova_senha) < 8:
+            raise ValueError(
+                "A nova senha deve ter pelo menos 8 caracteres."
+            )
+
+        if senha_atual == nova_senha:
+            raise ValueError(
+                "A nova senha deve ser diferente da atual."
+            )
+
+        resposta_usuario = cliente_supabase.auth.get_user()
+
+        if (
+            resposta_usuario is None
+            or resposta_usuario.user is None
+        ):
+            raise ValueError(
+                "Sua sessão expirou. Entre novamente."
+            )
+
+        usuario_auth = resposta_usuario.user
+        email = usuario_auth.email
+
+        if not email:
+            raise ValueError(
+                "Não foi possível identificar o e-mail da conta."
+            )
+
+        # Verifica a senha atual em um cliente independente.
+        cliente_verificacao = criar_cliente_supabase()
+
+        try:
+            verificacao = (
+                cliente_verificacao.auth.sign_in_with_password({
+                    "email": email,
+                    "password": senha_atual,
+                })
+            )
+
+        except Exception as erro:
+            print(
+                "Falha ao verificar a senha atual:",
+                type(erro).__name__,
+            )
+            raise ValueError(
+                "Senha atual incorreta ou autenticação indisponível."
+            ) from erro
+
+        if (
+            verificacao.user is None
+            or verificacao.user.id != usuario_auth.id
+        ):
+            raise ValueError(
+                "Não foi possível confirmar sua identidade."
+            )
+
+        try:
+            resultado = cliente_supabase.auth.update_user({
+                "password": nova_senha,
+            })
+
+        except Exception as erro:
+            print(
+                "Falha ao atualizar senha:",
+                type(erro).__name__,
+            )
+            raise ValueError(
+                "Não foi possível atualizar a senha. "
+                "Verifique os requisitos de segurança "
+                "da sua conta."
+            ) from erro
+
+        if resultado is None or resultado.user is None:
+            raise ValueError(
+                "O Supabase não confirmou a alteração."
+            )
+
+    # =========================================
     # PERFIL
     # =========================================
 
@@ -317,6 +467,7 @@ def main(page: ft.Page):
             salvar_foto=salvar_foto_usuario,
             remover_foto=remover_foto_usuario,
             foto_bytes=usuario_atual.get("_foto_bytes"),
+            alterar_senha=alterar_senha_usuario,
         )
 
     # =========================================
@@ -331,6 +482,7 @@ def main(page: ft.Page):
         login_screen(
             page,
             autenticar=autenticar,
+            abrir_cadastro=abrir_cadastro,
         )
 
     def sair_da_conta():
@@ -338,6 +490,7 @@ def main(page: ft.Page):
 
         try:
             cliente_supabase.auth.sign_out()
+
         except Exception as erro:
             print(f"Erro ao sair da conta: {erro}")
 
@@ -353,10 +506,6 @@ def main(page: ft.Page):
 
         usuario_atual = None
         abrir_login()
-
-    # =========================================
-    # INICIAR
-    # =========================================
 
     abrir_login()
 
