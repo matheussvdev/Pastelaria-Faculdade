@@ -1,0 +1,15 @@
+
+[project]
+name = "pastelaria"
+version = "1.0.0"
+description = "Aplicativo de gerenciamento de comandas e vendas de uma pastelaria"
+requires-python = ">=3.12"
+dependencies = [
+    "flet==1.0.5",
+    "supabase==2.34.0",
+    "python-dotenv==1.2.4",
+]
+
+[tool.flet]
+product = "Pastelaria"
+org = "br.com.pastelaria"

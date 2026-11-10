@@ -21,6 +21,10 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
             bottom=lado,
         )
 
+    # ==========================================
+    # CAMPOS DO FORMULÁRIO
+    # ==========================================
+
     email = ft.TextField(
         label="E-mail",
         hint_text="Digite seu e-mail",
@@ -57,6 +61,10 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
         text_align=ft.TextAlign.CENTER,
     )
 
+    # ==========================================
+    # BOTÃO ENTRAR
+    # ==========================================
+
     botao_entrar = ft.Button(
         content=ft.Row(
             controls=[
@@ -65,7 +73,10 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
                     weight=ft.FontWeight.BOLD,
                     size=16,
                 ),
-                ft.Icon(ft.Icons.ARROW_FORWARD_ROUNDED, size=20),
+                ft.Icon(
+                    ft.Icons.ARROW_FORWARD_ROUNDED,
+                    size=20,
+                ),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=10,
@@ -73,8 +84,12 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
         bgcolor=AMARELO,
         color=FUNDO,
         height=56,
-        width=float("inf"),
+        expand=True,
     )
+
+    # ==========================================
+    # AUTENTICAÇÃO
+    # ==========================================
 
     def entrar(e):
         mensagem.visible = False
@@ -93,8 +108,10 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
 
         try:
             autenticar(email_informado, senha_informada)
+
         except Exception as erro:
             print(f"Erro no login: {erro}")
+
             mensagem.value = (
                 "Não foi possível entrar. "
                 "Verifique seu e-mail e sua senha."
@@ -104,6 +121,10 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
             page.update()
 
     botao_entrar.on_click = entrar
+
+    # ==========================================
+    # CADASTRO DE FUNCIONÁRIOS
+    # ==========================================
 
     def cadastrar(e):
         if abrir_cadastro is not None:
@@ -120,53 +141,63 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
         disabled=abrir_cadastro is None,
     )
 
+    # ==========================================
+    # LOGOTIPO
+    # ==========================================
+
     logotipo = ft.Container(
         content=ft.Column(
             controls=[
                 ft.Container(
-                    width=108,
-                    height=108,
-                    border_radius=54,
+                    width=96,
+                    height=96,
+                    border_radius=48,
                     bgcolor=SUPERFICIE,
                     border=criar_borda(AMARELO, 2),
                     alignment=ft.Alignment.CENTER,
                     content=ft.Icon(
                         ft.Icons.BAKERY_DINING_ROUNDED,
-                        size=66,
+                        size=58,
                         color=AMARELO,
                     ),
                 ),
                 ft.Text(
                     "PASTELARIA",
-                    size=34,
+                    size=30,
                     weight=ft.FontWeight.BOLD,
                     color=TEXTO,
                     text_align=ft.TextAlign.CENTER,
+                    no_wrap=True,
                 ),
                 ft.Text(
                     "SABOR EM CADA MORDIDA",
-                    size=12,
+                    size=11,
                     weight=ft.FontWeight.BOLD,
                     color=AMARELO,
                     text_align=ft.TextAlign.CENTER,
                 ),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10,
+            spacing=8,
+            tight=True,
         ),
         alignment=ft.Alignment.CENTER,
     )
+
+    # ==========================================
+    # FORMULÁRIO
+    # ==========================================
 
     formulario = ft.Container(
         bgcolor=SUPERFICIE,
         border_radius=20,
         border=criar_borda(BORDA),
-        padding=22,
+        padding=20,
         content=ft.Column(
             controls=[
                 ft.Text(
                     "Bem-vindo de volta!",
-                    size=23,
+                    size=22,
                     weight=ft.FontWeight.BOLD,
                     color=TEXTO,
                 ),
@@ -175,13 +206,16 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
                     size=13,
                     color=TEXTO_SECUNDARIO,
                 ),
-                ft.Container(height=8),
+                ft.Container(height=6),
                 email,
                 senha,
                 mensagem,
                 ft.Container(height=4),
                 botao_entrar,
-                ft.Divider(color=BORDA, height=24),
+                ft.Divider(
+                    color=BORDA,
+                    height=20,
+                ),
                 ft.Text(
                     "Novo por aqui?",
                     size=13,
@@ -191,17 +225,21 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
                 botao_cadastro,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
-            spacing=12,
+            spacing=10,
+            tight=True,
         ),
     )
 
+    # ==========================================
+    # CONTEÚDO DO LOGIN
+    # ==========================================
+
     conteudo = ft.Column(
         controls=[
-            ft.Container(height=35),
             logotipo,
-            ft.Container(height=25),
+            ft.Container(height=20),
             formulario,
-            ft.Container(height=18),
+            ft.Container(height=12),
             ft.Text(
                 "Sistema de gerenciamento de comandas",
                 size=12,
@@ -215,30 +253,58 @@ def login_screen(page: ft.Page, autenticar, abrir_cadastro=None):
                 text_align=ft.TextAlign.CENTER,
             ),
         ],
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        spacing=10,
-        scroll=ft.ScrollMode.AUTO,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        spacing=8,
+        tight=True,
     )
+
+    # ==========================================
+    # LAYOUT RESPONSIVO
+    # ==========================================
+
+    # O ResponsiveRow distribui o espaço em 12 colunas.
+    #
+    # Celular: ocupa as 12 colunas.
+    # Tablet: ocupa 8 colunas.
+    # Computador: ocupa 5 colunas.
+    #
+    # Isso evita larguras fixas maiores que a tela.
+    painel = ft.Container(
+        content=conteudo,
+        col={"xs": 12, "sm": 10, "md": 8, "lg": 5},
+    )
+
+    layout = ft.ResponsiveRow(
+        controls=[painel],
+        alignment=ft.MainAxisAlignment.CENTER,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        spacing=0,
+        run_spacing=0,
+    )
+
+    area_rolavel = ft.Column(
+        controls=[
+            layout,
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+    )
+
+    # ==========================================
+    # CONFIGURAÇÃO DA PÁGINA
+    # ==========================================
 
     page.clean()
     page.navigation_bar = None
     page.drawer = None
     page.bgcolor = FUNDO
-    page.padding = 20
+    page.padding = 16
 
     page.add(
         ft.SafeArea(
-            content=ft.Row(
-                controls=[
-                    ft.Container(
-                        content=conteudo,
-                        width=420,
-                    ),
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-                expand=True,
-            ),
+            content=area_rolavel,
             expand=True,
         )
     )

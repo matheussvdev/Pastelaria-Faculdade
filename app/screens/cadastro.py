@@ -7,6 +7,10 @@ from app.theme.colors import AppColors as C
 
 def cadastro_screen(page: ft.Page, cadastrar, voltar):
 
+    # =========================================
+    # FUNÇÕES AUXILIARES
+    # =========================================
+
     def criar_borda(cor, largura=1):
         lado = ft.BorderSide(
             width=largura,
@@ -68,6 +72,10 @@ def cadastro_screen(page: ft.Page, cadastrar, voltar):
         visible=False,
         text_align=ft.TextAlign.CENTER,
     )
+
+    # =========================================
+    # MENSAGENS
+    # =========================================
 
     def mostrar_erro(texto):
         mensagem.value = texto
@@ -177,7 +185,9 @@ def cadastro_screen(page: ft.Page, cadastrar, voltar):
     botao_cadastrar = ft.Button(
         content=ft.Row(
             controls=[
-                ft.Icon(ft.Icons.PERSON_ADD_ALT_1),
+                ft.Icon(
+                    ft.Icons.PERSON_ADD_ALT_1,
+                ),
                 ft.Text(
                     "Criar conta",
                     weight=ft.FontWeight.BOLD,
@@ -212,35 +222,42 @@ def cadastro_screen(page: ft.Page, cadastrar, voltar):
         bgcolor=C.SURFACE,
         border_radius=20,
         border=criar_borda(C.BORDER),
-        padding=22,
+        padding=20,
         content=ft.Column(
             controls=[
                 ft.Text(
                     "Criar conta",
-                    size=26,
+                    size=24,
                     weight=ft.FontWeight.BOLD,
                     color=C.TEXT,
                 ),
+
                 ft.Text(
                     "Cadastre-se para acessar o sistema da pastelaria.",
                     size=13,
                     color=C.TEXT_SECONDARY,
                 ),
-                ft.Container(height=10),
+
+                ft.Container(height=8),
+
                 nome,
                 email,
                 senha,
                 confirmar_senha,
                 mensagem,
+
                 ft.Container(height=6),
+
                 botao_cadastrar,
                 botao_voltar_login,
+
                 ft.Text(
                     "Novas contas possuem acesso de funcionário.",
                     size=12,
                     color=C.TEXT_SECONDARY,
                     text_align=ft.TextAlign.CENTER,
                 ),
+
                 ft.TextButton(
                     content=ft.Text(
                         "Já tenho uma conta. Entrar",
@@ -251,7 +268,58 @@ def cadastro_screen(page: ft.Page, cadastrar, voltar):
             ],
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             spacing=12,
+            tight=True,
         ),
+    )
+
+    # =========================================
+    # CABEÇALHO
+    # =========================================
+
+    cabecalho = ft.Row(
+        controls=[
+            ft.IconButton(
+                icon=ft.Icons.ARROW_BACK,
+                icon_color=C.TEXT,
+                on_click=lambda e: voltar(),
+            ),
+
+            ft.Text(
+                "Cadastro de funcionário",
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                color=C.TEXT,
+                expand=True,
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.START,
+        spacing=8,
+    )
+
+    # =========================================
+    # LOGOTIPO
+    # =========================================
+
+    logotipo = ft.Column(
+        controls=[
+            ft.Icon(
+                ft.Icons.BAKERY_DINING_ROUNDED,
+                size=60,
+                color=C.PRIMARY,
+            ),
+
+            ft.Text(
+                "PASTELARIA",
+                size=28,
+                weight=ft.FontWeight.BOLD,
+                color=C.TEXT,
+                text_align=ft.TextAlign.CENTER,
+                no_wrap=True,
+            ),
+        ],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        spacing=10,
+        tight=True,
     )
 
     # =========================================
@@ -260,61 +328,62 @@ def cadastro_screen(page: ft.Page, cadastrar, voltar):
 
     conteudo = ft.Column(
         controls=[
+            cabecalho,
             ft.Container(height=20),
-            ft.Row(
-                controls=[
-                    ft.IconButton(
-                        icon=ft.Icons.ARROW_BACK,
-                        icon_color=C.TEXT,
-                        on_click=lambda e: voltar(),
-                    ),
-                    ft.Text(
-                        "Cadastro de funcionário",
-                        size=18,
-                        weight=ft.FontWeight.BOLD,
-                        color=C.TEXT,
-                    ),
-                ],
-            ),
-            ft.Container(height=15),
-            ft.Icon(
-                ft.Icons.BAKERY_DINING_ROUNDED,
-                size=65,
-                color=C.PRIMARY,
-            ),
-            ft.Text(
-                "PASTELARIA",
-                size=28,
-                weight=ft.FontWeight.BOLD,
-                color=C.TEXT,
-            ),
-            ft.Container(height=15),
+            logotipo,
+            ft.Container(height=20),
             formulario,
         ],
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        spacing=12,
-        scroll=ft.ScrollMode.AUTO,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        spacing=10,
+        tight=True,
     )
+
+    # =========================================
+    # LAYOUT RESPONSIVO
+    # =========================================
+
+    # Celulares: 12 colunas.
+    # Tablets: 8 colunas.
+    # Computadores: 5 colunas.
+    painel = ft.Container(
+        content=conteudo,
+        col={
+            "xs": 12,
+            "sm": 10,
+            "md": 8,
+            "lg": 5,
+        },
+    )
+
+    layout = ft.ResponsiveRow(
+        controls=[painel],
+        alignment=ft.MainAxisAlignment.CENTER,
+        vertical_alignment=ft.CrossAxisAlignment.START,
+        spacing=0,
+        run_spacing=0,
+    )
+
+    area_rolavel = ft.Column(
+        controls=[layout],
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+    )
+
+    # =========================================
+    # CONFIGURAÇÃO DA PÁGINA
+    # =========================================
 
     page.clean()
     page.navigation_bar = None
     page.drawer = None
     page.bgcolor = C.BACKGROUND
-    page.padding = 20
+    page.padding = 16
 
     page.add(
         ft.SafeArea(
-            content=ft.Row(
-                controls=[
-                    ft.Container(
-                        content=conteudo,
-                        width=420,
-                    ),
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-                expand=True,
-            ),
+            content=area_rolavel,
             expand=True,
         )
     )
