@@ -1,0 +1,6 @@
+
+# Configurações públicas utilizadas pelo aplicativo Android
+
+SUPABASE_URL = "https://zlhnbzashndifhicnuhr.supabase.co"
+
+SUPABASE_KEY = "sb_publishable_5RGOfzXFZgYiTJez9a9kQg_EUJFim4B"
