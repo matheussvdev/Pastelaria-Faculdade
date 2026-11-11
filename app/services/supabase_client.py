@@ -10,14 +10,21 @@ RAIZ_PROJETO = Path(__file__).resolve().parents[2]
 ARQUIVO_ENV = RAIZ_PROJETO / ".env"
 
 
-def criar_cliente_supabase() -> Client:
+def carregar_configuracoes() -> tuple[str, str]:
+    """
+    Carrega as configurações públicas do Supabase.
+
+    Prioridade:
+    1. Variáveis de ambiente
+    2. Arquivo .env
+    3. Configuração pública do aplicativo
+    """
+
     configuracoes = {}
 
-    # 1. Carregar configurações locais, se existirem
     if ARQUIVO_ENV.is_file():
         configuracoes = dotenv_values(ARQUIVO_ENV)
 
-    # 2. Priorizar variáveis de ambiente
     url = os.getenv("SUPABASE_URL") or configuracoes.get(
         "SUPABASE_URL"
     )
@@ -26,8 +33,6 @@ def criar_cliente_supabase() -> Client:
         "SUPABASE_KEY"
     )
 
-    # 3. Usar configurações públicas do aplicativo
-    # quando não existir arquivo .env (ex.: Android)
     if not url or not chave:
         from app.supabase_public_config import (
             SUPABASE_URL,
@@ -37,14 +42,28 @@ def criar_cliente_supabase() -> Client:
         url = url or SUPABASE_URL
         chave = chave or SUPABASE_KEY
 
-    # 4. Validar configurações
     if not url or not chave:
         raise RuntimeError(
-            "As configurações públicas do Supabase "
-            "não foram encontradas."
+            "Configurações do Supabase não encontradas."
         )
 
-    print("URL do Supabase configurada:", bool(url))
-    print("Chave do Supabase configurada:", bool(chave))
+    return url, chave
 
-    return create_client(url, chave)
+
+def criar_cliente_supabase() -> Client:
+    """
+    Inicializa o cliente Supabase utilizando
+    configurações previamente validadas.
+    """
+
+    url, chave = carregar_configuracoes()
+
+    try:
+        cliente = create_client(url, chave)
+
+    except Exception as erro:
+        raise RuntimeError(
+            "Não foi possível inicializar o cliente Supabase."
+        ) from erro
+
+    return cliente
