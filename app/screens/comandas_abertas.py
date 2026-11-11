@@ -39,9 +39,7 @@ def formatar_horario(data_iso):
             )
 
         if data.tzinfo is None:
-            data = data.replace(
-                tzinfo=ZoneInfo("UTC")
-            )
+            data = data.replace(tzinfo=ZoneInfo("UTC"))
 
         data = data.astimezone(
             ZoneInfo("America/Sao_Paulo")
@@ -73,8 +71,16 @@ def comandas_abertas_screen(
     BORDA = C.BORDER
 
     # =========================================
-    # COMPONENTES AUXILIARES
+    # ACESSIBILIDADE
     # =========================================
+
+    fonte_ampliada = False
+
+    def tamanho_fonte(tamanho_normal):
+        if fonte_ampliada:
+            return tamanho_normal + 4
+
+        return tamanho_normal
 
     def criar_borda(cor, largura=1):
         lado = ft.BorderSide(
@@ -120,7 +126,6 @@ def comandas_abertas_screen(
 
     except Exception as erro:
         print(f"Erro ao carregar comandas: {erro}")
-
         comandas = []
         erro_carregamento = True
 
@@ -164,7 +169,7 @@ def comandas_abertas_screen(
                             ),
                             ft.Text(
                                 titulo,
-                                size=11,
+                                size=tamanho_fonte(11),
                                 color=SECUNDARIO,
                                 expand=True,
                             ),
@@ -173,7 +178,7 @@ def comandas_abertas_screen(
                     ),
                     ft.Text(
                         str(valor),
-                        size=20,
+                        size=tamanho_fonte(20),
                         weight=ft.FontWeight.BOLD,
                         color=TEXTO,
                     ),
@@ -182,88 +187,68 @@ def comandas_abertas_screen(
             ),
         )
 
-    indicadores = ft.Column(
-    controls=[
-        ft.Row(
+    def criar_indicadores():
+        indicadores = ft.Column(
             controls=[
-                criar_indicador(
-                    "Em aberto",
-                    quantidade_comandas,
-                    ft.Icons.RECEIPT_LONG,
-                    AMARELO,
-                ),
-                criar_indicador(
-                    "Itens pedidos",
-                    quantidade_itens,
-                    ft.Icons.FASTFOOD_OUTLINED,
-                    VERMELHO,
+                ft.Row(
+                    controls=[
+                        criar_indicador(
+                            "Em aberto",
+                            quantidade_comandas,
+                            ft.Icons.RECEIPT_LONG,
+                            AMARELO,
+                        ),
+                        criar_indicador(
+                            "Itens pedidos",
+                            quantidade_itens,
+                            ft.Icons.FASTFOOD_OUTLINED,
+                            VERMELHO,
+                        ),
+                    ],
+                    spacing=10,
                 ),
             ],
             spacing=10,
-        ),
-    ],
-    spacing=10,
-)
-
-    indicadores = ft.Column(
-        controls=[
-            ft.Row(
-                controls=[
-                    criar_indicador(
-                        "Em aberto",
-                        quantidade_comandas,
-                        ft.Icons.RECEIPT_LONG,
-                        AMARELO,
-                    ),
-                    criar_indicador(
-                        "Itens pedidos",
-                        quantidade_itens,
-                        ft.Icons.FASTFOOD_OUTLINED,
-                        VERMELHO,
-                    ),
-                ],
-                spacing=10,
-            ),
-        ],
-        spacing=10,
-    )
-
-    if administrador:
-        indicadores.controls.append(
-            ft.Container(
-                bgcolor=SUPERFICIE,
-                border=criar_borda(BORDA),
-                border_radius=16,
-                padding=16,
-                content=ft.Row(
-                    controls=[
-                        ft.Icon(
-                            ft.Icons.PAYMENTS_OUTLINED,
-                            color=AMARELO,
-                            size=25,
-                        ),
-                        ft.Column(
-                            controls=[
-                                ft.Text(
-                                    "Valor em comandas abertas",
-                                    size=12,
-                                    color=SECUNDARIO,
-                                ),
-                                ft.Text(
-                                    formatar_moeda(total_aberto),
-                                    size=22,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=AMARELO,
-                                ),
-                            ],
-                            spacing=4,
-                            expand=True,
-                        ),
-                    ],
-                    spacing=12,
-                ),
-            )
         )
+
+        if administrador:
+            indicadores.controls.append(
+                ft.Container(
+                    bgcolor=SUPERFICIE,
+                    border=criar_borda(BORDA),
+                    border_radius=16,
+                    padding=16,
+                    content=ft.Row(
+                        controls=[
+                            ft.Icon(
+                                ft.Icons.PAYMENTS_OUTLINED,
+                                color=AMARELO,
+                                size=25,
+                            ),
+                            ft.Column(
+                                controls=[
+                                    ft.Text(
+                                        "Valor em comandas abertas",
+                                        size=tamanho_fonte(12),
+                                        color=SECUNDARIO,
+                                    ),
+                                    ft.Text(
+                                        formatar_moeda(total_aberto),
+                                        size=tamanho_fonte(22),
+                                        weight=ft.FontWeight.BOLD,
+                                        color=AMARELO,
+                                    ),
+                                ],
+                                spacing=4,
+                                expand=True,
+                            ),
+                        ],
+                        spacing=12,
+                    ),
+                )
+            )
+
+        return indicadores
 
     # =========================================
     # CARTÃO DE COMANDA
@@ -278,7 +263,11 @@ def comandas_abertas_screen(
         )
 
         numero = str(comanda["id"]).zfill(2)
-        cliente = comanda.get("cliente") or "Cliente não informado"
+
+        cliente = (
+            comanda.get("cliente")
+            or "Cliente não informado"
+        )
 
         return ft.Container(
             bgcolor=SUPERFICIE,
@@ -291,15 +280,15 @@ def comandas_abertas_screen(
                     ft.Row(
                         controls=[
                             ft.Container(
-                                width=54,
-                                height=54,
+                                width=62 if fonte_ampliada else 54,
+                                height=62 if fonte_ampliada else 54,
                                 bgcolor=FUNDO,
                                 border=criar_borda(AMARELO),
                                 border_radius=14,
                                 alignment=ft.Alignment.CENTER,
                                 content=ft.Text(
                                     numero,
-                                    size=19,
+                                    size=tamanho_fonte(19),
                                     weight=ft.FontWeight.BOLD,
                                     color=AMARELO,
                                 ),
@@ -308,17 +297,17 @@ def comandas_abertas_screen(
                                 controls=[
                                     ft.Text(
                                         cliente,
-                                        size=16,
+                                        size=tamanho_fonte(16),
                                         weight=ft.FontWeight.BOLD,
                                         color=TEXTO,
-                                        max_lines=1,
+                                        max_lines=2 if fonte_ampliada else 1,
                                         overflow=ft.TextOverflow.ELLIPSIS,
                                     ),
                                     ft.Text(
                                         formatar_horario(
                                             comanda.get("aberta_em")
                                         ),
-                                        size=12,
+                                        size=tamanho_fonte(12),
                                         color=SECUNDARIO,
                                     ),
                                 ],
@@ -350,7 +339,7 @@ def comandas_abertas_screen(
                                     ft.Text(
                                         f"{quantidade} "
                                         f"{'item' if quantidade == 1 else 'itens'}",
-                                        size=12,
+                                        size=tamanho_fonte(12),
                                         color=SECUNDARIO,
                                     ),
                                 ],
@@ -374,7 +363,7 @@ def comandas_abertas_screen(
                                         ),
                                         ft.Text(
                                             "Em aberto",
-                                            size=11,
+                                            size=tamanho_fonte(11),
                                             weight=ft.FontWeight.BOLD,
                                             color=TEXTO,
                                         ),
@@ -392,14 +381,14 @@ def comandas_abertas_screen(
                                 controls=[
                                     ft.Text(
                                         "TOTAL DA COMANDA",
-                                        size=10,
+                                        size=tamanho_fonte(10),
                                         color=SECUNDARIO,
                                     ),
                                     ft.Text(
                                         formatar_moeda(
                                             comanda.get("total")
                                         ),
-                                        size=21,
+                                        size=tamanho_fonte(21),
                                         weight=ft.FontWeight.BOLD,
                                         color=AMARELO,
                                     ),
@@ -412,6 +401,7 @@ def comandas_abertas_screen(
                                     controls=[
                                         ft.Text(
                                             "Detalhes",
+                                            size=tamanho_fonte(14),
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                         ft.Icon(
@@ -438,17 +428,15 @@ def comandas_abertas_screen(
     # PESQUISA
     # =========================================
 
-    lista = ft.Column(
-        spacing=12,
-    )
+    lista = ft.Column(spacing=12)
 
     quantidade_resultados = ft.Text(
         "",
-        size=12,
+        size=tamanho_fonte(12),
         color=SECUNDARIO,
     )
 
-    def atualizar_lista(texto=""):
+    def atualizar_lista(texto="", atualizar_pagina=True):
         texto = (texto or "").strip().casefold()
 
         filtradas = [
@@ -469,6 +457,8 @@ def comandas_abertas_screen(
             f"{'comanda encontrada' if len(filtradas) == 1 else 'comandas encontradas'}"
         )
 
+        quantidade_resultados.size = tamanho_fonte(12)
+
         if erro_carregamento:
             lista.controls.append(
                 ft.Container(
@@ -482,12 +472,13 @@ def comandas_abertas_screen(
                             ),
                             ft.Text(
                                 "Não foi possível carregar as comandas.",
+                                size=tamanho_fonte(14),
                                 color=TEXTO,
                                 text_align=ft.TextAlign.CENTER,
                             ),
                             ft.Text(
                                 "Volte à tela inicial e tente novamente.",
-                                size=12,
+                                size=tamanho_fonte(12),
                                 color=SECUNDARIO,
                                 text_align=ft.TextAlign.CENTER,
                             ),
@@ -515,7 +506,7 @@ def comandas_abertas_screen(
                                     if not texto
                                     else "Nenhuma comanda encontrada."
                                 ),
-                                size=16,
+                                size=tamanho_fonte(16),
                                 weight=ft.FontWeight.BOLD,
                                 color=TEXTO,
                                 text_align=ft.TextAlign.CENTER,
@@ -526,7 +517,7 @@ def comandas_abertas_screen(
                                     if not texto
                                     else "Tente pesquisar outro nome ou número."
                                 ),
-                                size=12,
+                                size=tamanho_fonte(12),
                                 color=SECUNDARIO,
                                 text_align=ft.TextAlign.CENTER,
                             ),
@@ -543,7 +534,8 @@ def comandas_abertas_screen(
                     criar_card(comanda)
                 )
 
-        page.update()
+        if atualizar_pagina:
+            page.update()
 
     pesquisa = ft.TextField(
         hint_text="Buscar cliente ou número da comanda",
@@ -552,14 +544,40 @@ def comandas_abertas_screen(
         border_color=BORDA,
         focused_border_color=AMARELO,
         border_radius=12,
-        text_size=14,
-        height=54,
+        text_size=tamanho_fonte(14),
+        height=62 if fonte_ampliada else 54,
         on_change=lambda e: atualizar_lista(e.control.value),
     )
 
     # =========================================
     # CABEÇALHO
     # =========================================
+
+    titulo_cabecalho = ft.Text(
+        "Comandas abertas",
+        size=tamanho_fonte(21),
+        weight=ft.FontWeight.BOLD,
+        color=TEXTO,
+    )
+
+    subtitulo_cabecalho = ft.Text(
+        "Acompanhe os pedidos em andamento",
+        size=tamanho_fonte(11),
+        color=SECUNDARIO,
+    )
+
+    contador_cabecalho = ft.Text(
+        str(quantidade_comandas),
+        color=TEXTO,
+        weight=ft.FontWeight.BOLD,
+        size=tamanho_fonte(13),
+    )
+
+    botao_acessibilidade = ft.IconButton(
+        icon=ft.Icons.TEXT_INCREASE,
+        icon_color=AMARELO,
+        tooltip="Aumentar tamanho das letras",
+    )
 
     cabecalho = ft.Row(
         controls=[
@@ -570,21 +588,13 @@ def comandas_abertas_screen(
             ),
             ft.Column(
                 controls=[
-                    ft.Text(
-                        "Comandas abertas",
-                        size=21,
-                        weight=ft.FontWeight.BOLD,
-                        color=TEXTO,
-                    ),
-                    ft.Text(
-                        "Acompanhe os pedidos em andamento",
-                        size=11,
-                        color=SECUNDARIO,
-                    ),
+                    titulo_cabecalho,
+                    subtitulo_cabecalho,
                 ],
                 spacing=3,
                 expand=True,
             ),
+            botao_acessibilidade,
             ft.Container(
                 bgcolor=VERMELHO,
                 border_radius=20,
@@ -592,12 +602,7 @@ def comandas_abertas_screen(
                     horizontal=12,
                     vertical=7,
                 ),
-                content=ft.Text(
-                    str(quantidade_comandas),
-                    color=TEXTO,
-                    weight=ft.FontWeight.BOLD,
-                    size=13,
-                ),
+                content=contador_cabecalho,
             ),
         ],
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -607,6 +612,12 @@ def comandas_abertas_screen(
     # BOTÃO NOVA COMANDA
     # =========================================
 
+    texto_nova_comanda = ft.Text(
+        "Nova comanda",
+        size=tamanho_fonte(16),
+        weight=ft.FontWeight.BOLD,
+    )
+
     botao_nova = ft.Button(
         content=ft.Row(
             controls=[
@@ -614,25 +625,30 @@ def comandas_abertas_screen(
                     ft.Icons.ADD_CIRCLE_OUTLINE,
                     size=21,
                 ),
-                ft.Text(
-                    "Nova comanda",
-                    size=16,
-                    weight=ft.FontWeight.BOLD,
-                ),
+                texto_nova_comanda,
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=10,
         ),
         bgcolor=AMARELO,
         color=FUNDO,
-        height=56,
+        height=64 if fonte_ampliada else 56,
         width=float("inf"),
         on_click=lambda e: abrir_nova(),
     )
 
     # =========================================
-    # EXIBIR TELA
+    # CONTEÚDO DA TELA
     # =========================================
+
+    indicadores = criar_indicadores()
+
+    titulo_pedidos = ft.Text(
+        "Pedidos em andamento",
+        size=tamanho_fonte(18),
+        weight=ft.FontWeight.BOLD,
+        color=TEXTO,
+    )
 
     conteudo = ft.Column(
         controls=[
@@ -640,12 +656,7 @@ def comandas_abertas_screen(
             ft.Container(height=8),
             indicadores,
             ft.Container(height=12),
-            ft.Text(
-                "Pedidos em andamento",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                color=TEXTO,
-            ),
+            titulo_pedidos,
             pesquisa,
             quantidade_resultados,
             lista,
@@ -655,6 +666,60 @@ def comandas_abertas_screen(
         scroll=ft.ScrollMode.AUTO,
         expand=True,
     )
+
+    # =========================================
+    # ATIVAR / DESATIVAR ACESSIBILIDADE
+    # =========================================
+
+    def alternar_fonte(e):
+        nonlocal fonte_ampliada
+
+        fonte_ampliada = not fonte_ampliada
+
+        # Atualiza o cabeçalho
+        titulo_cabecalho.size = tamanho_fonte(21)
+        subtitulo_cabecalho.size = tamanho_fonte(11)
+        contador_cabecalho.size = tamanho_fonte(13)
+
+        # Atualiza a pesquisa
+        pesquisa.text_size = tamanho_fonte(14)
+        pesquisa.height = 62 if fonte_ampliada else 54
+
+        # Atualiza o título dos pedidos
+        titulo_pedidos.size = tamanho_fonte(18)
+
+        # Atualiza o botão inferior
+        texto_nova_comanda.size = tamanho_fonte(16)
+        botao_nova.height = 64 if fonte_ampliada else 56
+
+        # Recria os indicadores com os novos tamanhos
+        conteudo.controls[2] = criar_indicadores()
+
+        # Atualiza os cartões mantendo a pesquisa atual
+        atualizar_lista(
+            pesquisa.value or "",
+            atualizar_pagina=False,
+        )
+
+        # Atualiza a identificação do botão
+        if fonte_ampliada:
+            botao_acessibilidade.icon = ft.Icons.TEXT_DECREASE
+            botao_acessibilidade.tooltip = (
+                "Restaurar tamanho das letras"
+            )
+        else:
+            botao_acessibilidade.icon = ft.Icons.TEXT_INCREASE
+            botao_acessibilidade.tooltip = (
+                "Aumentar tamanho das letras"
+            )
+
+        page.update()
+
+    botao_acessibilidade.on_click = alternar_fonte
+
+    # =========================================
+    # EXIBIR TELA
+    # =========================================
 
     page.clean()
     page.bgcolor = FUNDO
