@@ -8,8 +8,7 @@ from zoneinfo import ZoneInfo
 
 from app.theme.colors import AppColors as C
 from app.services.comandas_service import (
-    listar_comandas_abertas_bd,
-    buscar_detalhes_comanda_bd,
+    listar_comandas_abertas_com_detalhes_bd,
 )
 
 
@@ -44,9 +43,7 @@ def formatar_horario(data_iso):
             )
 
         if data.tzinfo is None:
-            data = data.replace(
-                tzinfo=ZoneInfo("UTC")
-            )
+            data = data.replace(tzinfo=ZoneInfo("UTC"))
 
         data = data.astimezone(
             ZoneInfo("America/Sao_Paulo")
@@ -90,7 +87,6 @@ def comandas_abertas_screen(
     def tamanho_fonte(tamanho_normal):
         if fonte_ampliada:
             return tamanho_normal + 4
-
         return tamanho_normal
 
     # =========================================
@@ -112,37 +108,23 @@ def comandas_abertas_screen(
 
     def mensagem(texto):
         page.show_dialog(
-            ft.SnackBar(
-                content=ft.Text(texto)
-            )
+            ft.SnackBar(content=ft.Text(texto))
         )
 
     # =========================================
-    # CARREGAMENTO DAS COMANDAS
+    # CARREGAMENTO OTIMIZADO DAS COMANDAS
     # =========================================
 
     erro_carregamento = False
     inicio_carregamento = perf_counter()
 
     try:
-        registros = listar_comandas_abertas_bd(
+        comandas = listar_comandas_abertas_com_detalhes_bd(
             cliente_supabase
         )
 
-        comandas = []
-
-        for registro in registros:
-            detalhes = buscar_detalhes_comanda_bd(
-                cliente_supabase,
-                registro["id"],
-            )
-
-            if detalhes:
-                comandas.append(detalhes)
-
     except Exception as erro:
         print(f"Erro ao carregar comandas: {erro}")
-
         comandas = []
         erro_carregamento = True
 
@@ -465,9 +447,7 @@ def comandas_abertas_screen(
     # PESQUISA
     # =========================================
 
-    lista = ft.Column(
-        spacing=12,
-    )
+    lista = ft.Column(spacing=12)
 
     quantidade_resultados = ft.Text(
         "",

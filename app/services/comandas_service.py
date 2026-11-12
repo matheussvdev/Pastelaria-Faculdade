@@ -54,6 +54,79 @@ def listar_comandas_abertas_bd(cliente_supabase):
     return resposta.data or []
 
 
+def listar_comandas_abertas_com_detalhes_bd(cliente_supabase):
+    """
+    Busca todas as comandas abertas e seus itens em lote,
+    evitando consultas individuais para cada comanda.
+    """
+
+    resposta_comandas = (
+        cliente_supabase.table("comandas")
+        .select("id, cliente, status, aberta_em, fechada_em")
+        .eq("status", "aberta")
+        .order("aberta_em", desc=True)
+        .execute()
+    )
+
+    registros = resposta_comandas.data or []
+
+    if not registros:
+        return []
+
+    ids_comandas = [
+        registro["id"]
+        for registro in registros
+    ]
+
+    resposta_itens = (
+        cliente_supabase.table("itens_comanda")
+        .select(
+            "id, comanda_id, produto_id, quantidade, "
+            "preco_unitario, produtos(nome)"
+        )
+        .in_("comanda_id", ids_comandas)
+        .order("id")
+        .execute()
+    )
+
+    comandas_por_id = {}
+
+    for registro in registros:
+        comandas_por_id[registro["id"]] = {
+            **registro,
+            "itens": [],
+            "total": Decimal("0.00"),
+        }
+
+    for item in resposta_itens.data or []:
+        comanda = comandas_por_id.get(
+            item["comanda_id"]
+        )
+
+        if comanda is None:
+            continue
+
+        quantidade = int(item["quantidade"])
+        preco = Decimal(str(item["preco_unitario"]))
+        subtotal = preco * quantidade
+
+        produto = item.get("produtos") or {}
+
+        comanda["itens"].append({
+            "id": item["id"],
+            "produto_id": item["produto_id"],
+            "nome": produto.get("nome", "Produto"),
+            "quantidade": quantidade,
+            "preco_unitario": preco,
+            "subtotal": subtotal,
+        })
+
+        comanda["total"] += subtotal
+
+    return list(comandas_por_id.values())
+
+
+
 def buscar_detalhes_comanda_bd(cliente_supabase, comanda_id):
     resposta_comanda = (
         cliente_supabase.table("comandas")
